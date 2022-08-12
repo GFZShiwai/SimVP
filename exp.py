@@ -61,6 +61,12 @@ class Exp:
 
     def _build_model(self):
         args = self.args
+        # 构建SimVP数据集
+        # inshape [10, 1, 64, 64]
+        # hid_S   64
+        # hid_T   256
+        # N_S     4
+        # N_T     8
         self.model = SimVP(tuple(args.in_shape), args.hid_S,
                            args.hid_T, args.N_S, args.N_T).to(self.device)
 
@@ -88,8 +94,10 @@ class Exp:
 
     def train(self, args):
         config = args.__dict__
+        # 实例化模型保存的类
         recorder = Recorder(verbose=True)
 
+        # 训练
         for epoch in range(config['epochs']):
             train_loss = []
             self.model.train()
