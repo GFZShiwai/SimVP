@@ -6,9 +6,9 @@ channels:
 dependencies:
   - numpy
   - pip
-  - python
+  - python=3.7
   - pytorch
   - pip:
     - tqdm
-    - scikit-image
-prefix: /opt/anaconda3/envs/simvp
+    - scikit-image==0.16.2
+prefix: /opt/conda/envs/simvp
