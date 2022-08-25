@@ -14,6 +14,8 @@ def PSNR(pred, true):
     return 20 * np.log10(255) - 10 * np.log10(mse)
 
 def metric(pred, true, mean, std, return_ssim_psnr=False, clip_range=[0, 1]):
+    pred = np.mean(pred,axis=2,keepdims=True)
+    true = np.mean(true,axis=2,keepdims=True)
     pred = pred*std + mean
     true = true*std + mean
     mae = MAE(pred, true)

@@ -17,7 +17,9 @@ class Exp:
         super(Exp, self).__init__()
         self.args = args
         self.config = self.args.__dict__
-        self.device = self._acquire_device()
+        self.device_ids = self._acquire_device()
+        self.device = torch.device('cuda', 0)
+        print(self.device)
 
         self._preparation()
         print_log(output_namespace(self.args))
@@ -28,8 +30,9 @@ class Exp:
 
     def _acquire_device(self):
         if self.args.use_gpu:
-            os.environ["CUDA_VISIBLE_DEVICES"] = str(self.args.gpu)
-            device = torch.device('cuda:{}'.format(0))
+            os.environ["CUDA_VISIBLE_DEVICES"] = self.args.gpu
+            # device = torch.device('cuda:{}'.format(0))
+            device = list(range(len(self.args.gpu.split(","))))
             print_log('Use GPU: {}'.format(self.args.gpu))
         else:
             device = torch.device('cpu')
@@ -67,8 +70,11 @@ class Exp:
         # hid_T   256
         # N_S     4
         # N_T     8
-        self.model = SimVP(tuple(args.in_shape), args.hid_S,
+        # net = torch.nn.DataParallel(net, device_ids=device_ids)
+        net = SimVP(tuple(args.in_shape), args.hid_S,
                            args.hid_T, args.N_S, args.N_T).to(self.device)
+        self.model = torch.nn.DataParallel(net, device_ids=self.device_ids)
+
 
     def _get_data(self):
         config = self.args.__dict__
@@ -78,6 +84,7 @@ class Exp:
     def _select_optimizer(self):
         self.optimizer = torch.optim.Adam(
             self.model.parameters(), lr=self.args.lr)
+        # self.optimizer = torch.nn.DataParallel(self.optimizer,device_ids=self.device_ids)
         self.scheduler = torch.optim.lr_scheduler.OneCycleLR(
             self.optimizer, max_lr=self.args.lr, steps_per_epoch=len(self.train_loader), epochs=self.args.epochs)
         return self.optimizer
@@ -86,7 +93,7 @@ class Exp:
         self.criterion = torch.nn.MSELoss()
 
     def _save(self, name=''):
-        torch.save(self.model.state_dict(), os.path.join(
+        torch.save(self.model.module.state_dict(), os.path.join(
             self.checkpoints_path, name + '.pth'))
         state = self.scheduler.state_dict()
         fw = open(os.path.join(self.checkpoints_path, name + '.pkl'), 'wb')
@@ -138,12 +145,12 @@ class Exp:
         for i, (batch_x, batch_y) in enumerate(vali_pbar):
             if i * batch_x.shape[0] > 1000:
                 break
-
             batch_x, batch_y = batch_x.to(self.device), batch_y.to(self.device)
             pred_y = self.model(batch_x)
-            list(map(lambda data, lst: lst.append(data.detach().cpu().numpy()), [
+            # XLY TMP
+            list(map(lambda data, lst: lst.append(data.detach().cpu().numpy()),[
                  pred_y, batch_y], [preds_lst, trues_lst]))
-
+            # xly tmp
             loss = self.criterion(pred_y, batch_y)
             vali_pbar.set_description(
                 'vali loss: {:.4f}'.format(loss.mean().item()))
@@ -152,6 +159,7 @@ class Exp:
         total_loss = np.average(total_loss)
         preds = np.concatenate(preds_lst, axis=0)
         trues = np.concatenate(trues_lst, axis=0)
+        # trues = trues[:,:5]
         mse, mae, ssim, psnr = metric(preds, trues, vali_loader.dataset.mean, vali_loader.dataset.std, True)
         print_log('vali mse:{:.4f}, mae:{:.4f}, ssim:{:.4f}, psnr:{:.4f}'.format(mse, mae, ssim, psnr))
         self.model.train()
@@ -178,3 +186,6 @@ class Exp:
         for np_data in ['inputs', 'trues', 'preds']:
             np.save(osp.join(folder_path, np_data + '.npy'), vars()[np_data])
         return mse
+
+
+

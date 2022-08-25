@@ -1,5 +1,16 @@
+import os
+os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "2,3"
+
 import argparse
 from exp import Exp
+
+
+
+# os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+
+# os.environ["CUDA_VISIBLE_DEVICES"] = "2, 3"
 
 import warnings
 warnings.filterwarnings('ignore')
@@ -11,7 +22,7 @@ def create_parser():
     parser.add_argument('--res_dir', default='./results', type=str)
     parser.add_argument('--ex_name', default='Debug', type=str)
     parser.add_argument('--use_gpu', default=True, type=bool)
-    parser.add_argument('--gpu', default=0, type=int)
+    parser.add_argument('--gpu', default="2,3", type=str)
     parser.add_argument('--seed', default=1, type=int)
 
     # dataset parameters
@@ -23,7 +34,7 @@ def create_parser():
 
     # model parameters
     parser.add_argument('--in_shape', default=[10, 1, 64, 64], type=int,nargs='*') # [10, 1, 64, 64] for mmnist, [4, 2, 32, 32] for taxibj  
-    parser.add_argument('--hid_S', default=64, type=int)
+    parser.add_argument('--hid_S', default=1024, type=int)
     parser.add_argument('--hid_T', default=256, type=int)
     parser.add_argument('--N_S', default=4, type=int)
     parser.add_argument('--N_T', default=8, type=int)
@@ -36,10 +47,11 @@ def create_parser():
     return parser
 
 
+
+
 if __name__ == '__main__':
     args = create_parser().parse_args()
     config = args.__dict__
-
     exp = Exp(args)
     print('>>>>>>>>>>>>>>>>>>>>>>>>>>>>  start <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<')
     exp.train(args)

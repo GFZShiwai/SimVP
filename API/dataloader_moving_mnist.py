@@ -9,7 +9,8 @@ import torch.utils.data as data
 
 def load_mnist(root):
     # Load MNIST dataset for generating training data.
-    path = os.path.join(root, 'moving_mnist/train-images-idx3-ubyte.gz')
+    # path = os.path.join(root, 'moving_mnist/train-images-idx3-ubyte.gz')
+    path = "/workspace/xly-FramePrediction/SimVP/data/moving_mnist/train-images-idx3-ubyte.gz"
     with gzip.open(path, 'rb') as f:
         mnist = np.frombuffer(f.read(), np.uint8, offset=16)
         mnist = mnist.reshape(-1, 28, 28)
@@ -19,7 +20,8 @@ def load_mnist(root):
 def load_fixed_set(root):
     # Load the fixed dataset
     filename = 'moving_mnist/mnist_test_seq.npy'
-    path = os.path.join(root, filename)
+    #path = os.path.join(root, filename)
+    path = "/workspace/xly-FramePrediction/SimVP/data/moving_mnist/mnist_test_seq.npy"
     dataset = np.load(path)
     dataset = dataset[..., np.newaxis]
     return dataset
@@ -126,7 +128,7 @@ class MovingMNIST(data.Dataset):
 
         r = 1
         w = int(64 / r)
-        images = images.reshape((length, w, r, w, r)).transpose(
+        images = images[:15].reshape((length, w, r, w, r)).transpose(
             0, 2, 4, 1, 3).reshape((length, r * r, w, w))
 
         input = images[:self.n_frames_input]
@@ -148,9 +150,9 @@ def load_data(
         data_root, num_workers):
 
     train_set = MovingMNIST(root=data_root, is_train=True,
-                            n_frames_input=10, n_frames_output=10, num_objects=[2])
+                            n_frames_input=10, n_frames_output=5, num_objects=[2])
     test_set = MovingMNIST(root=data_root, is_train=False,
-                           n_frames_input=10, n_frames_output=10, num_objects=[2])
+                           n_frames_input=10, n_frames_output=5, num_objects=[2])
 
     dataloader_train = torch.utils.data.DataLoader(
         train_set, batch_size=batch_size, shuffle=True, pin_memory=True, num_workers=num_workers)
