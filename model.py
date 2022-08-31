@@ -3,6 +3,7 @@ import torch
 from torch import nn
 from modules import ConvSC, Inception
 from swin_transformer import SwinTransformer3D
+import math
 
 def stride_generator(N, reverse=False):
     strides = [1, 2]*10
@@ -38,8 +39,8 @@ class Decoder(nn.Module):
     def forward(self, hid, enc1=None):
         for i in range(0,len(self.dec)-1):
             hid = self.dec[i](hid)
-        m = nn.Upsample(scale_factor=8, mode='nearest')
-        hid = m(hid)
+        # m = nn.Upsample(scale_factor=4, mode='nearest')
+        # hid = m(hid)
         # hid = hid.view(*enc1.shape)
         Y = self.dec[-1](torch.cat([hid, enc1], dim=1))
         Y = self.readout(Y)
@@ -83,6 +84,63 @@ class Mid_Xnet(nn.Module):
         y = z.reshape(B, T, C, H, W)
         return y
 
+class Pyramid(nn.Module):
+    def __init__(self):
+        super(Pyramid,self).__init__()
+        self.relu = nn.ReLU(inplace=True)
+        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+        # Top layer
+        self.toplayer = nn.Conv2d(1024, 256, kernel_size=1, stride=1, padding=0)  # Reduce channels
+        # Lateral layers
+        self.latlayer1 = nn.Conv2d(1024, 256, kernel_size=1, stride=1, padding=0)
+        self.latlayer2 = nn.Conv2d( 512, 256, kernel_size=1, stride=1, padding=0)
+        self.latlayer3 = nn.Conv2d( 256, 256, kernel_size=1, stride=1, padding=0)
+        self.latlayer4 = nn.Conv2d( 128, 256, kernel_size=1, stride=1, padding=0)
+
+        # Smooth layers
+        self.smooth1 = nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1)
+        self.smooth2 = nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1)
+        self.smooth3 = nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1)
+        self.smooth4 = nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1)
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+                m.weight.data.normal_(0, math.sqrt(2. / n))
+            elif isinstance(m, nn.BatchNorm2d):
+                m.weight.data.fill_(1)
+                m.bias.data.zero_()
+
+    def _upsample_add(self, x, y):
+        _,_,H,W = y.size()
+        return nn.functional.upsample(x, size=(H,W), mode='bilinear') + y
+    
+    def forward(self,skips):
+        new_skips = []
+        for i in skips:
+            b,c,t,h,w = i.shape
+            i = i.transpose(1,2)
+            i = i.reshape(b*t,c,h,w)
+            new_skips.append(i)
+
+        C1, C2, C3, C4, C5 = new_skips
+        P5 = self.toplayer(C5)
+        P4 = self._upsample_add(P5, self.latlayer1(C4))
+        P3 = self._upsample_add(P4, self.latlayer2(C3))
+        P2 = self._upsample_add(P3, self.latlayer3(C2))
+        P1 = self._upsample_add(P2, self.latlayer4(C1))
+        # Smooth
+        P4 = self.smooth1(P4)
+        P3 = self.smooth2(P3)
+        P2 = self.smooth3(P2)
+        P1 = self.smooth4(P1)
+
+        return P1
+
+
+
+
+
+       
 
 class SimVP(nn.Module):
     def __init__(self, shape_in, hid_S=16, hid_T=256, N_S=4, N_T=8, incep_ker=[3,5,7,11], groups=8):
@@ -96,12 +154,13 @@ class SimVP(nn.Module):
         T, C, H, W = shape_in
         self.backbone = SwinTransformer3D(pretrained='/workspace/weight/bevt_swin_base.pth')
         self.enc = Encoder(C, hid_S, N_S)
-        self.hid = Mid_Xnet(int(T*hid_S/2), hid_T, N_T, incep_ker, groups)
-        self.dec = Decoder(hid_S, 3, N_S)
+        self.hid = Mid_Xnet(int(T*256/2), hid_T, N_T, incep_ker, groups)
+        self.dec = Decoder(256, 3, N_S)
         # xly add for backbone
-        self.skip_layer = ConvSC(3, int(hid_S/2), stride=1)
+        self.skip_layer = ConvSC(3, 128, stride=1)
         # xly add for input of different chann
         self.conv_input = nn.Conv2d(shape_in[1], 3, kernel_size=3, stride=1, padding=1)
+        self.fpn = Pyramid()
 
 
     def forward(self, x_raw):
@@ -115,14 +174,19 @@ class SimVP(nn.Module):
         skip = skip.view(B*int(T/2),-1,H,W)
         # skip = skip[:,:int(T/2)] + skip[:,int(T/2):] # 将skip的维度与后面hid对齐
         x_raw = x_raw.transpose(1, 2)
-        embed = self.backbone(x_raw)
+        embed,skips = self.backbone(x_raw)
+        
+        # 在此处将skips和embed融合成为更好的金字塔特征
+        feature = self.fpn(skips)
         embed = embed.transpose(1,2)
 
         #print("shape of embed ", embed.shape)
         # embed, skip = self.enc(x)
-        _, _, C_, H_, W_ = embed.shape
-        T_ = T/2
-        z = embed.view(B, int(T_), C_, H_, W_)
+        # _, _, C_, H_, W_ = embed.shape
+        # T_ = T/2
+        # z = embed.view(B, int(T_), C_, H_, W_)
+        _, C_, H_, W_ = feature.shape
+        z = feature.reshape(B,int(T/2),C_,H_,W_)
         hid = self.hid(z)
         hid = hid.reshape(int(B*T/2), C_, H_, W_)
         # 此处的hid dim0=BxT/2,上面的skip的维度需要做出对应改变

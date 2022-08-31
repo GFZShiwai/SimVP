@@ -784,18 +784,20 @@ class SwinTransformer3D(nn.Module):
     def forward(self, x, time_remove_one_hot=None):
         """Forward function."""
         x = self.patch_embed(x)
-
         x = self.pos_drop(x)
-
+        skips = []
+        skips.append(x)
         for layer in self.layers:
             x_, x = layer(x.contiguous(), time_remove_one_hot=time_remove_one_hot)
+            skips.append(x)
 
         x = rearrange(x, 'n c d h w -> n d h w c')
         x = self.norm(x)
         x = rearrange(x, 'n d h w c -> n c d h w')
+        skips[-1] = x
 
 
-        return x
+        return x,skips
 
     def train(self, mode=True):
         """Convert the model into training mode while keep layers freezed."""

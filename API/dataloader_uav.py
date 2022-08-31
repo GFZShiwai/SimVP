@@ -3,9 +3,9 @@ import numpy as np
 from torch.utils.data import Dataset
 
 
-class UAVDataset(Dataset):
+class TrafficDataset(Dataset):
     def __init__(self, X, Y):
-        super(UAVDataset, self).__init__()
+        super(TrafficDataset, self).__init__()
         self.X = (X + 1) / 2
         self.Y = (Y + 1) / 2
         self.mean = 0
@@ -18,6 +18,15 @@ class UAVDataset(Dataset):
         data = torch.tensor(self.X[index, ::]).float()
         labels = torch.tensor(self.Y[index, ::]).float()
         return data, labels
+
+class MorUAV(Dataset):
+    def __init__(self, path):
+        super(MorUAV, self).__init__()
+        pass
+    def __len__(self):
+        pass
+    def __getitem__(self, index):
+        pass 
 
 def load_data(
         batch_size, val_batch_size,
@@ -35,3 +44,8 @@ def load_data(
         test_set, batch_size=val_batch_size, shuffle=False, pin_memory=True, num_workers=num_workers)
 
     return dataloader_train, None, dataloader_test, 0, 1
+
+if __name__=="__main__":
+    data_root = '/workspace/xly-FramePrediction/SimVP/data'
+    dataset = np.load(data_root+'taxibj/dataset.npz')
+    X_train, Y_train, X_test, Y_test = dataset['X_train'], dataset['Y_train'], dataset['X_test'], dataset['Y_test']

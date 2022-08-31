@@ -1,7 +1,7 @@
 import os
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "2,3"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
 
 import argparse
 from exp import Exp
@@ -22,7 +22,7 @@ def create_parser():
     parser.add_argument('--res_dir', default='./results', type=str)
     parser.add_argument('--ex_name', default='Debug', type=str)
     parser.add_argument('--use_gpu', default=True, type=bool)
-    parser.add_argument('--gpu', default="2,3", type=str)
+    parser.add_argument('--gpu', default="0,1,2,3", type=str)
     parser.add_argument('--seed', default=1, type=int)
 
     # dataset parameters
