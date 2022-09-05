@@ -6,7 +6,7 @@ import torch
 import pickle
 import logging
 import numpy as np
-from model_original import SimVP
+from model import SimVP
 from tqdm import tqdm
 from API import *
 from utils import *
@@ -168,6 +168,7 @@ class Exp:
     def test(self, args):
         self.model.eval()
         inputs_lst, trues_lst, preds_lst = [], [], []
+        self.model.load_state_dict(torch.load('/workspace/xly-FramePrediction/SimVP/results/Debug/checkpoint.pth'))
         for batch_x, batch_y in self.test_loader:
             pred_y = self.model(batch_x.to(self.device))
             list(map(lambda data, lst: lst.append(data.detach().cpu().numpy()), [

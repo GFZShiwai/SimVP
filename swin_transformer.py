@@ -550,7 +550,7 @@ class SwinTransformer3D(nn.Module):
     """
 
     def __init__(self,
-                 pretrained='/workspace/xly-FramePrediction/BEVT/OUTPUT/swin_base_bevt_twostream-8-8test/latest.pth',
+                 pretrained=None,
                  pretrained2d=False,
                  pretrained_window_size=None,
                  patch_size=(2,4,4),
@@ -573,7 +573,7 @@ class SwinTransformer3D(nn.Module):
                  unknown_pos_bias=False):
         super().__init__()
 
-        self.pretrained = pretrained
+        self.pretrained = None
         self.pretrained2d = pretrained2d
         self.pretrained_window_size = pretrained_window_size
         self.num_layers = len(depths)

@@ -153,6 +153,7 @@ class SimVP(nn.Module):
         # N_T     8
         T, C, H, W = shape_in
         self.backbone = SwinTransformer3D(pretrained='/workspace/weight/bevt_swin_base.pth')
+        # self.backbone = SwinTransformer3D(pretrained=None)
         self.enc = Encoder(C, hid_S, N_S)
         self.hid = Mid_Xnet(int(T*256/2), hid_T, N_T, incep_ker, groups)
         self.dec = Decoder(256, 3, N_S)
