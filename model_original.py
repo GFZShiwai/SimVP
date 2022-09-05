@@ -49,6 +49,8 @@ class Decoder(nn.Module):
             hid = self.dec[i](hid)
         Y = self.dec[-1](torch.cat([hid, enc1], dim=1))
         Y = self.readout(Y)
+        l = int(Y.shape[0]/2)
+        Y = (Y[:l] + Y[l:]) / 2
         return Y
 
 class Mid_Xnet(nn.Module):
@@ -113,21 +115,21 @@ class SimVP(nn.Module):
         _, C_, H_, W_ = embed.shape
 
         z = embed.view(B, T, C_, H_, W_)
-        print("shape of enc BTCHW ", z.shape)
+        #print("shape of enc BTCHW ", z.shape)
         hid = self.hid(z)
-        print("shape of hid BTCHW ", hid.shape)
+        #print("shape of hid BTCHW ", hid.shape)
         hid = hid.reshape(B*T, C_, H_, W_)
 
         Y = self.dec(hid, skip)
-        Y = Y.reshape(B, T, C, H, W)
-        print("shape of out BTCHW ", Y.shape)
+        Y = Y.reshape(B, int(T/2), C, H, W)
+        #print("shape of out BTCHW ", Y.shape)
 
         return Y
 
 if __name__ == "__main__":
     # 构建SimVP数据集
     #inshape = [8, 768, 7, 7]
-    inshape = [12,1,64,64]
+    inshape = [10,3,224,224]
     hid_S = 64
     hid_T = 256
     N_S = 4
@@ -135,7 +137,7 @@ if __name__ == "__main__":
 
     model = SimVP(inshape,hid_S,hid_T)
     model.eval()
-    input = torch.randn([2,12,1,64,64])
+    input = torch.randn([2,10,3,224,224])
     out = model(input)
     print(out.shape)
 

@@ -6,7 +6,7 @@ import torch
 import pickle
 import logging
 import numpy as np
-from model import SimVP
+from model_original import SimVP
 from tqdm import tqdm
 from API import *
 from utils import *
@@ -24,7 +24,7 @@ class Exp:
         self._preparation()
         print_log(output_namespace(self.args))
 
-        self._get_data()
+        # self._get_data()
         self._select_optimizer()
         self._select_criterion()
 
